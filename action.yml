@@ -1,0 +1,52 @@
+#
+# MIT License
+#
+# Copyright (c) 2025 Václav Kubernát
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+name: "Rust check version bump"
+description: "Check version bump in PRs"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      shell: bash
+    - name: Check version bump
+      run: |
+        TQ_DIR="$(mktemp --directory)"
+        curl --location https://github.com/cryptaliagy/tomlq/releases/download/0.2.2/tomlq.amd64.tgz | tar --directory="$TQ_DIR" --extract --gzip tq
+        PREVIOUS_COMMIT="${{github.event.pull_request.base.sha || github.event.before}}"
+        git fetch origin "$PREVIOUS_COMMIT"
+        echo Comparing version bump against "$PREVIOUS_COMMIT"
+        DEFAULT_BRANCH_VERSION="$("$TQ_DIR/tq" --raw package.version < <(git show "$PREVIOUS_COMMIT:Cargo.toml"))"
+        CURRENT_BRANCH_VERSION="$("$TQ_DIR/tq" --raw package.version < <(git show "HEAD:Cargo.toml"))"
+        if [[ "$DEFAULT_BRANCH_VERSION" = "$CURRENT_BRANCH_VERSION" ]]; then
+          echo Error: No version bump detected.
+          exit 1
+        else
+          echo Version bump detected: "$DEFAULT_BRANCH_VERSION -> $CURRENT_BRANCH_VERSION"
+        fi
+      shell: bash
+
+branding:
+  icon: "archive"
+  color: "gray-dark"
